@@ -21,7 +21,8 @@ export default function SignUp() {
     setLoading(true);
 
     try {
-      await api.post('/auth/signup', { name, email, password, department });
+      const payloadRole = email.toLowerCase() === 'rgtadmin@offer.com' ? 'admin' : 'manager';
+      await api.post('/auth/signup', { name, email, password, department, role: payloadRole });
       toast.success('Account created successfully! Please sign in.');
       setTimeout(() => window.location.href = '/login', 2000);
     } catch (err) {
