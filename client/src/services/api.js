@@ -19,8 +19,9 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // If unauthorized, clear token and redirect to login
-    if (error.response && error.response.status === 401) {
+    // If unauthorized AND it's not the login request itself → clear token and redirect
+    const isLoginRequest = error.config?.url?.includes('/auth/login');
+    if (error.response && error.response.status === 401 && !isLoginRequest) {
       clearAuthData();
       window.location.href = '/login';
     }
