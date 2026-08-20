@@ -1,112 +1,197 @@
-import { useState, useEffect } from 'react';
-import { Activity, Database, Mail, Clock } from 'lucide-react';
-import { motion } from 'framer-motion';
-import api from '../services/api';
+const sheets = require('../config/googleSheetsClient');
+const supabase = require('../config/supabaseClient');
+const bcrypt = require('bcryptjs');
+const nodemailer = require('nodemailer');
+const { jobStatus: expiryStatus } = require('../jobs/expiryJob');
+const { jobStatus: reminderStatus } = require('../jobs/reminderJob');
+const { appendUserToSheet } = require('../utils/sheetsSync');
 
-export default function SystemHealthPage() {
-  const [health, setHealth] = useState(null);
-  const [loading, setLoading] = useState(true);
+const SPREADSHEET_ID = process.env.GOOGLE_SHEET_ID;
 
-  useEffect(() => {
-    const fetchHealth = async () => {
-      try {
-        const res = await api.get('/admin/health');
-        setHealth(res.data);
-      } catch (err) {
-        console.error('Failed to fetch system health:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchHealth();
-  }, []);
+const getAdminUsers = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, name, email, role, department, created_at')
+      .order('created_at', { ascending: false });
 
-  return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-      <div style={{ marginBottom: '1.5rem' }}>
-        <h1 style={{ fontSize: '1.65rem', fontWeight: 800, color: 'var(--color-heading)', margin: 0, letterSpacing: '-0.025em' }}>
-          System Health
-        </h1>
-        <p style={{ color: 'var(--color-body)', margin: '0.3rem 0 0', fontSize: '0.875rem' }}>
-          Real-time status of system integrations and background jobs.
-        </p>
-      </div>
+    if (error) {
+      console.error('Supabase error fetching users:', error);
+      return res.status(500).json({ error: 'Failed to fetch users from database' });
+    }
 
-      <div style={cardStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
-          <Activity size={20} color="var(--color-primary)" />
-          <h2 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0, color: 'var(--color-heading)' }}>Live Diagnostics</h2>
-        </div>
-        
-        {loading ? (
-          <div style={{ background: '#f9f9f9', height: 80, borderRadius: 'var(--radius-inner)', animation: 'pulse 1.5s infinite ease-in-out' }} />
-        ) : !health ? (
-          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-muted)' }}>Failed to load diagnostic data.</div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
-            <HealthIndicator 
-              icon={<Database size={20} />} 
-              label="Google Sheets API" 
-              status={health.googleSheets} 
-            />
-            <HealthIndicator 
-              icon={<Mail size={20} />} 
-              label="SMTP Email Service" 
-              status={health.smtp} 
-            />
-            <HealthIndicator 
-              icon={<Clock size={20} />} 
-              label="Expiry Cron Job" 
-              status={health.cronExpiry ? 'ok' : 'pending'} 
-              subtitle={health.cronExpiry ? `Last: ${formatTime(health.cronExpiry)}` : 'Not run yet'}
-            />
-            <HealthIndicator 
-              icon={<Clock size={20} />} 
-              label="Reminder Cron Job" 
-              status={health.cronReminder ? 'ok' : 'pending'} 
-              subtitle={health.cronReminder ? `Last: ${formatTime(health.cronReminder)}` : 'Not run yet'}
-            />
-          </div>
-        )}
-      </div>
-    </motion.div>
-  );
-}
+    res.status(200).json(data || []);
+  } catch (err) {
+    console.error('Error fetching admin users:', err);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+};
 
-function HealthIndicator({ icon, label, status, subtitle }) {
-  const isOk = status === 'ok';
-  const isError = status === 'error';
-  const color = isOk ? '#059669' : isError ? '#DC2626' : '#D97706';
-  const bg = isOk ? '#D1FAE5' : isError ? '#FEE2E2' : '#FEF3C7';
+const getAdminOffers = async (req, res) => {
+  try {
+    // Fetch all offers from Supabase directly
+    const { data, error } = await supabase
+      .from('offers')
+      .select('*, users!generated_by(email, name), rejections(*)')
+      .order('created_at', { ascending: false });
 
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem', background: '#F9FAFB', borderRadius: 'var(--radius-inner)', border: '1px solid #F3F4F6' }}>
-      <div style={{ width: 44, height: 44, borderRadius: 12, background: bg, color: color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        {icon}
-      </div>
-      <div>
-        <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-heading)' }}>{label}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: 4 }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
-          <span style={{ fontSize: '0.75rem', color: 'var(--color-muted)', fontWeight: 500 }}>
-            {subtitle || (isOk ? 'Operational' : isError ? 'Error' : 'Pending')}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
+    if (error) throw error;
+      
+    res.status(200).json(data || []);
+  } catch (error) {
+    console.error('Error fetching admin offers:', error);
+    res.status(500).json({ error: 'Failed to fetch offers' });
+  }
+};
 
-function formatTime(isoString) {
-  if (!isoString) return '';
-  const d = new Date(isoString);
-  return d.toLocaleString('en-US');
-}
+const updateUserRole = async (req, res) => {
+  try {
+    const { email } = req.params;
+    const { role } = req.body;
 
-const cardStyle = {
-  background: '#fff',
-  borderRadius: 'var(--radius-card)',
-  boxShadow: 'var(--shadow-card)',
-  padding: '1.5rem',
-  marginBottom: '2rem'
+    if (!['hr', 'manager', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role provided' });
+    }
+
+    const { error } = await supabase
+      .from('users')
+      .update({ role })
+      .eq('email', email);
+
+    if (error) {
+      console.error('Supabase update error:', error);
+      return res.status(500).json({ error: 'Failed to update user role' });
+    }
+
+    // Sheets sync skipped — Google Sheets integration currently unavailable
+    res.status(200).json({ message: 'User role updated successfully' });
+  } catch (err) {
+    console.error('Error updating user role:', err);
+    res.status(500).json({ error: 'Failed to update user role' });
+  }
+};
+
+const deleteUser = async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    // Step 1: Get user ID from email
+    const { data: user, error: findError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', email)
+      .single();
+
+    if (findError || !user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Step 2: Nullify offers generated by this user (preserve offer records)
+    const { error: offersError } = await supabase
+      .from('offers')
+      .update({ generated_by: null })
+      .eq('generated_by', user.id);
+
+    if (offersError) {
+      console.error('Failed to nullify offers:', offersError);
+      return res.status(500).json({ error: 'Failed to unlink user offers before deletion' });
+    }
+
+    // Step 3: Delete the user
+    const { error: deleteError } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', user.id);
+
+    if (deleteError) {
+      console.error('Supabase delete error:', deleteError);
+      return res.status(500).json({ error: 'Failed to delete user' });
+    }
+
+    res.status(200).json({ message: 'User deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting user:', err);
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
+};
+
+const createUser = async (req, res) => {
+  try {
+    const { name, email, password, role, department } = req.body;
+    
+    if (!name || !email || !password || !role) {
+      return res.status(400).json({ error: 'Name, email, password, and role are required' });
+    }
+
+    if (role === 'manager' && !department) {
+      return res.status(400).json({ error: 'Department is required for managers' });
+    }
+
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', email)
+      .single();
+
+    if (existingUser) {
+      return res.status(400).json({ error: 'User already exists' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(password, salt);
+
+    const { data: newUser, error: insertError } = await supabase
+      .from('users')
+      .insert([{
+        name,
+        email,
+        password_hash: passwordHash,
+        role,
+        department: role === 'manager' ? department : null
+      }])
+      .select()
+      .single();
+
+    if (insertError) throw insertError;
+
+    // Async sync to Google Sheets
+    appendUserToSheet(newUser).catch(err => console.error('Failed to append user to sheet:', err));
+
+    res.status(201).json({ message: 'User created successfully', user: { id: newUser.id, email, name, role } });
+  } catch (error) {
+    console.error('Error creating user:', error);
+    res.status(500).json({ error: 'Failed to create user' });
+  }
+};
+
+const getSystemHealth = async (req, res) => {
+  // Check Google Sheets
+  let sheetsConnected = false;
+  try {
+    await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+    sheetsConnected = true;
+  } catch (err) {
+    console.error('Sheets health check failed:', err.message);
+  }
+
+  // Email check — SMTP verify blocks/crashes on Render free tier
+  // Use presence of RESEND_API_KEY as the indicator instead
+  const smtpConnected = !!process.env.RESEND_API_KEY;
+
+  // Always return 200 — never let health check crash
+  return res.status(200).json({
+    googleSheets: sheetsConnected ? 'ok' : 'error',
+    smtp: smtpConnected ? 'ok' : 'error',
+    cronExpiry: expiryStatus.lastRun || null,
+    cronReminder: reminderStatus.lastRun || null,
+  });
+};
+
+module.exports = {
+  getAdminUsers,
+  getAdminOffers,
+  updateUserRole,
+  deleteUser,
+  createUser,
+  getSystemHealth
 };
