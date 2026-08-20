@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+  import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Mail, ExternalLink, Briefcase, Calendar, MapPin, ChevronUp, ChevronDown, CheckCircle2, Clock, AlertTriangle, ChevronRight as ChevronRightIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -18,14 +18,15 @@ export default function Candidates() {
   console.log('Candidates component rendered');
   const [offers, setOffers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('All');
   const [sortMethod, setSortMethod] = useState('name_asc');
 
   useEffect(() => {
     api.get('/offers')
-      .then(r => setOffers(r.data))
-      .catch(() => {})
+      .then(r => setOffers(r.data || []))
+      .catch(() => setError('Failed to load candidates. Please try again.'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -38,6 +39,8 @@ export default function Candidates() {
     }
     candidateMap[key].offers.push(o);
   });
+  const departments = ['All', ...new Set(offers.map(o => o.department).filter(Boolean))];
+
   const candidates = Object.values(candidateMap)
     .filter(c => c.name.toLowerCase().includes(search.toLowerCase()) || c.email.toLowerCase().includes(search.toLowerCase()))
     .filter(c => deptFilter === 'All' || c.offers.some(o => o.department === deptFilter))
@@ -68,16 +71,13 @@ export default function Candidates() {
           </select>
           <select
             className="form-input"
-            style={{ width: 140, fontSize: '0.82rem', padding: '0.5rem 0.75rem', appearance: 'none', cursor: 'pointer' }}
+            style={{ width: 160, fontSize: '0.82rem', padding: '0.5rem 0.75rem', appearance: 'none', cursor: 'pointer' }}
             value={deptFilter}
             onChange={e => setDeptFilter(e.target.value)}
           >
-            <option value="All">All Departments</option>
-            <option value="AI">AI</option>
-            <option value="Marketing">Marketing</option>
-            <option value="Sales">Sales</option>
-            <option value="Engineering">Engineering</option>
-            <option value="HR">HR</option>
+            {departments.map(d => (
+              <option key={d} value={d}>{d === 'All' ? 'All Departments' : d}</option>
+            ))}
           </select>
           <input
             type="text"
@@ -90,7 +90,9 @@ export default function Candidates() {
         </div>
       </div>
 
-      {loading ? (
+      {error ? (
+        <div style={{ textAlign: 'center', padding: '4rem', color: '#DC2626' }}>{error}</div>
+      ) : loading ? (
         <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--color-muted)' }}>Loading candidates…</div>
       ) : candidates.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--color-muted)' }}>No candidates found.</div>
