@@ -1,4 +1,4 @@
-  import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Mail, ExternalLink, Briefcase, Calendar, MapPin, ChevronUp, ChevronDown, CheckCircle2, Clock, AlertTriangle, ChevronRight as ChevronRightIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
