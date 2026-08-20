@@ -17,7 +17,6 @@ import Respond from './pages/Respond';
 import AdminDashboard from './pages/AdminDashboard';
 import AuditLog from './pages/AuditLog';
 import UserManagementPage from './pages/UserManagementPage';
-import SystemHealthPage from './pages/SystemHealthPage';
 import AllOffersPage from './pages/AllOffersPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { getAuthUser } from './utils/auth';
@@ -76,7 +75,6 @@ function AppLayout() {
             <Route path="/admin/dashboard"   element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/audit"       element={<ProtectedRoute allowedRoles={['admin']}><AuditLog /></ProtectedRoute>} />
             <Route path="/admin/users"       element={<ProtectedRoute allowedRoles={['admin']}><UserManagementPage /></ProtectedRoute>} />
-            <Route path="/admin/health"      element={<ProtectedRoute allowedRoles={['admin']}><SystemHealthPage /></ProtectedRoute>} />
             <Route path="/admin/offers"      element={<ProtectedRoute allowedRoles={['admin']}><AllOffersPage /></ProtectedRoute>} />
             <Route path="/generate"          element={<ProtectedRoute allowedRoles={['manager', 'admin']}><GenerateOffer /></ProtectedRoute>} />
             <Route path="/offers/:id"        element={<ProtectedRoute><OfferDetail /></ProtectedRoute>} />
