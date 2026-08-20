@@ -33,9 +33,17 @@ export default function Candidates() {
   // Group offers by candidate email → latest offer + history
   const candidateMap = {};
   [...offers].reverse().forEach(o => {
-    const key = o.candidate_email || o.candidate_name;
+    // Normalise key: prefer email, fall back to name; skip empty records
+    const key = (o.candidate_email || '').trim().toLowerCase() ||
+                (o.candidate_name  || '').trim().toLowerCase();
+    if (!key) return;
+
     if (!candidateMap[key]) {
-      candidateMap[key] = { email: o.candidate_email, name: o.candidate_name, offers: [] };
+      candidateMap[key] = {
+        email: o.candidate_email || '',
+        name:  o.candidate_name  || 'Unknown',
+        offers: []
+      };
     }
     candidateMap[key].offers.push(o);
   });
@@ -52,7 +60,7 @@ export default function Candidates() {
     });
 
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} style={{ overflowX: 'hidden' }}>
       <div style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h1 style={{ fontSize: '1.65rem', fontWeight: 800, color: 'var(--color-heading)', margin: 0, letterSpacing: '-0.025em' }}>Candidates</h1>
@@ -134,18 +142,32 @@ export default function Candidates() {
                       padding: '0.6rem 0.875rem', borderRadius: 10,
                       background: '#FAFAFF', textDecoration: 'none',
                       transition: 'background 0.15s',
+                      minWidth: 0,
+                      overflow: 'hidden',
                     }}
                     onMouseEnter={e => e.currentTarget.style.background = '#F5F3FF'}
                     onMouseLeave={e => e.currentTarget.style.background = '#FAFAFF'}
                     >
-                      <Briefcase size={14} color="var(--color-primary)" />
-                      <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-heading)', flex: 1 }}>{offer.designation}</span>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Briefcase size={14} color="var(--color-primary)" style={{ flexShrink: 0 }} />
+                      <span style={{
+                        fontSize: '0.82rem', fontWeight: 600,
+                        color: 'var(--color-heading)',
+                        flex: 1,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        minWidth: 0,
+                      }}>{offer.designation}</span>
+                      <span style={{
+                        fontSize: '0.75rem', color: 'var(--color-muted)',
+                        display: 'flex', alignItems: 'center', gap: 4,
+                        flexShrink: 0,
+                      }}>
                         <Calendar size={12} />
                         {new Date(offer.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </span>
                       <StatusDot status={offer.status} />
-                      <ChevronRightIcon size={14} color="var(--color-muted)" />
+                      <ChevronRightIcon size={14} color="var(--color-muted)" style={{ flexShrink: 0 }} />
                     </Link>
                   ))}
                 </div>
