@@ -50,12 +50,12 @@ export default function SystemHealthPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
             <HealthIndicator 
               icon={<Database size={20} />} 
-              label="Google Sheets API" 
+              label="Google Sheets" 
               status={health.googleSheets} 
             />
             <HealthIndicator 
               icon={<Mail size={20} />} 
-              label="SMTP Email Service" 
+              label="Email Service (Resend)" 
               status={health.smtp} 
             />
             <HealthIndicator 
