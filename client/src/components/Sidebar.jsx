@@ -22,7 +22,6 @@ export default function Sidebar() {
   const ADMIN_NAV_ITEMS = [
     { to: '/admin/users',  label: 'User Mgmt',   icon: Users },
     { to: '/admin/offers', label: 'All Offers',  icon: LayoutDashboard },
-    { to: '/admin/health', label: 'Sys Health',  icon: BarChart2 },
     { to: '/admin/audit',  label: 'Audit Log',   icon: BarChart2 },
   ];
 
